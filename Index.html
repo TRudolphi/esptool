@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ESP Flash Tool</title>
+  <script src="https://unpkg.com/esptool-js@3.2.0/dist/web/index.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+    }
+    input[type="number"] {
+      width: 120px;
+    }
+    button {
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h2>Flash je ESP met aangepast startadres</h2>
+
+  <label for="binFile">Firmware (.bin):</label><br>
+  <input type="file" id="binFile" accept=".bin"><br><br>
+
+  <label for="offset">Startadres (hex):</label><br>
+  <input type="text" id="offset" value="0x10000"><br><br>
+
+  <button id="flashBtn">Flash naar ESP</button>
+
+  <p id="log"></p>
+
+  <script>
+    const log = (msg) => {
+      const el = document.getElementById("log");
+      el.innerText += msg + "\n";
+    };
+
+    document.getElementById("flashBtn").addEventListener("click", async () => {
+      const fileInput = document.getElementById("binFile");
+      const offsetInput = document.getElementById("offset");
+
+      if (!fileInput.files.length) {
+        alert("Selecteer een .bin bestand.");
+        return;
+      }
+
+      const offset = parseInt(offsetInput.value, 16);
+      if (isNaN(offset)) {
+        alert("Ongeldig offset adres. Gebruik bijv. 0x1000.");
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const firmware = await file.arrayBuffer();
+
+      try {
+        const transport = await navigator.serial.requestPort({});
+        const esptool = new Esptool(transport);
+
+        log("Verbinden met ESP...");
+        await esptool.connect();              // Standaard op 115200
+        log("Synchroniseren...");
+        await esptool.sync();
+
+        log("Baudrate verhogen naar 460800...");
+        await esptool.setBaudrate(460800);   // <-- Hier verhoog je 'm
+
+        log("Flashen naar 0x" + offset.toString(16) + "...");
+        await esptool.flash([{ data: new Uint8Array(firmware), offset }]);
+        log("Flashen voltooid!"); 
+      } catch (err) {
+        log("Fout: " + err.message);
+      }
+    });
+  </script>
+</body>
+</html>
